@@ -1,0 +1,131 @@
+<!doctype html>
+<html lang="fr">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+<title>À la pompe — prix et disponibilité des carburants autour de vous</title>
+<meta name="description" content="Carte des prix et des ruptures de carburant autour de vous, avec la date de chaque mise à jour. Données officielles du ministère de l'Économie.">
+<meta name="theme-color" content="#2E3438">
+<link rel="manifest" href="manifest.webmanifest">
+<link rel="icon" href="icons/icon-192.png">
+<link rel="apple-touch-icon" href="icons/apple-touch-icon.png">
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=Barlow+Condensed:wght@500;600;700&family=Barlow:wght@400;500;600&display=swap" rel="stylesheet">
+<link rel="stylesheet" href="vendor/leaflet.css">
+<link rel="stylesheet" href="vendor/MarkerCluster.css">
+<link rel="stylesheet" href="styles.css">
+</head>
+<body>
+
+<!-- ============ Accueil ============ -->
+<main id="accueil">
+  <h1>À la pompe</h1>
+  <p class="sous-titre">Prix et disponibilité des carburants autour de vous, avec l'âge de chaque information</p>
+  <div class="bande" aria-hidden="true"></div>
+  <form id="formAccueil">
+    <fieldset>
+      <legend>Votre carburant</legend>
+      <div class="carbus" id="listeCarbus"></div>
+    </fieldset>
+    <fieldset>
+      <legend><label for="rayonAccueil">Distance de recherche</label></legend>
+      <div class="curseur">
+        <input type="range" id="rayonAccueil" min="5" max="50" step="5" value="30">
+        <output id="rayonAccueilVal" for="rayonAccueil">30 km</output>
+      </div>
+    </fieldset>
+    <div class="actions">
+      <button class="go" id="btnGo" type="submit">Me localiser et voir les prix</button>
+      <button class="go second" id="btnAdresseAccueil" type="button">Chercher autour d'une adresse</button>
+    </div>
+    <div id="msgAccueil" role="alert"></div>
+  </form>
+  <p class="note">Votre position reste sur votre appareil : seule la zone de recherche est envoyée aux services publics de données. Les prix et ruptures sont déclarés par les stations elles-mêmes, sans contrôle en temps réel.</p>
+</main>
+
+<!-- ============ Application ============ -->
+<div id="appli">
+  <header class="barre">
+    <span class="titre">À la pompe</span>
+    <label class="masque" for="selCarbu">Carburant</label>
+    <select id="selCarbu"></select>
+    <div class="curseur">
+      <label class="masque" for="rayon">Distance de recherche</label>
+      <input type="range" id="rayon" min="5" max="50" step="5" value="30">
+      <output id="rayonVal" for="rayon">30 km</output>
+    </div>
+    <button id="btnPosition" type="button">Ma position</button>
+    <button id="btnAdresse" type="button">Adresse</button>
+    <button id="btnPlein" type="button">Mon plein</button>
+    <button id="btnMaj" type="button">Actualiser</button>
+  </header>
+  <div class="bandeau" id="bandeau" role="status" hidden></div>
+  <div class="source" id="source" aria-live="polite">Chargement…</div>
+  <div class="corps">
+    <div id="carte" role="region" aria-label="Carte des stations"></div>
+    <aside id="panneau" aria-label="Synthèse et liste des stations">
+      <section class="synthese" id="synthese" aria-live="polite"></section>
+      <div class="filtres" role="group" aria-label="Filtres">
+        <label><input type="checkbox" data-filtre="recent"> Prix de moins de 72 h</label>
+        <label><input type="checkbox" data-filtre="rupt"> Masquer les ruptures</label>
+        <label><input type="checkbox" data-filtre="autoroute"> Sans autoroute</label>
+        <label><input type="checkbox" data-filtre="h24"> Automate 24 h/24</label>
+      </div>
+      <div class="tri" role="group" aria-label="Trier par">Trier par
+        <button type="button" data-tri="prix" aria-pressed="true">prix</button>
+        <button type="button" data-tri="cout" aria-pressed="false">coût réel du plein</button>
+        <button type="button" data-tri="dist" aria-pressed="false">distance</button>
+        <button type="button" data-tri="maj" aria-pressed="false">fraîcheur</button>
+      </div>
+      <div class="legende">
+        <span><i class="f-frais"></i>Moins de 24 h</span>
+        <span><i class="f-moyen"></i>1 à 3 j</span>
+        <span><i class="f-vieux"></i>3 à 7 j</span>
+        <span><i class="f-douteux"></i>Plus de 7 j</span>
+        <span><i class="f-rupture"></i>Rupture déclarée</span>
+      </div>
+      <ol class="stations" id="liste"></ol>
+    </aside>
+  </div>
+</div>
+
+<!-- ============ Dialogue adresse ============ -->
+<dialog id="dlgAdresse" aria-labelledby="titreAdresse">
+  <div class="dlg">
+    <h2 id="titreAdresse">Chercher autour d'une adresse</h2>
+    <div class="champ">
+      <label for="champAdresse">Adresse, ville ou code postal</label>
+      <input id="champAdresse" type="search" autocomplete="off" placeholder="Ex. 12 avenue de Grande-Bretagne, Perpignan">
+      <span>Recherche via la Géoplateforme de l'IGN (base adresse nationale)</span>
+    </div>
+    <ul id="resultatsAdresse" aria-label="Résultats"></ul>
+    <div class="boutons"><button type="button" id="fermerAdresse">Annuler</button></div>
+  </div>
+</dialog>
+
+<!-- ============ Dialogue mon plein ============ -->
+<dialog id="dlgPlein" aria-labelledby="titrePlein">
+  <form method="dialog" id="formPlein">
+    <h2 id="titrePlein">Mon plein</h2>
+    <div class="champ">
+      <label for="volume">Litres à mettre</label>
+      <input id="volume" type="number" min="5" max="150" step="1" inputmode="decimal" required>
+    </div>
+    <div class="champ">
+      <label for="conso">Consommation du véhicule (L/100 km)</label>
+      <input id="conso" type="number" min="2" max="30" step="0.1" inputmode="decimal" required>
+    </div>
+    <p class="meta">Le calcul compte l'aller-retour depuis votre position jusqu'à la station, à vol d'oiseau multiplié par 1,3 pour approcher la distance routière. Le temps passé n'est pas compté. La référence est la station la plus proche dont le prix date de moins de 72 h.</p>
+    <div class="boutons">
+      <button value="annuler" formnovalidate>Annuler</button>
+      <button value="ok" class="ok">Enregistrer</button>
+    </div>
+  </form>
+</dialog>
+
+<script src="vendor/leaflet.js"></script>
+<script src="vendor/leaflet.markercluster.js"></script>
+<script src="app.js"></script>
+</body>
+</html>
